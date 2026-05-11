@@ -1,5 +1,5 @@
-# Единый стек: Nginx (ingress) → Frontend / Backend / pgAdmin / Registry (v2)
-# Сеть app — internal (без выхода в интернет). PostgreSQL только в app.
+# Nginx (ingress) → Frontend + Backend. PostgreSQL только в сети app (internal).
+# pgAdmin и Docker Registry отключены по умолчанию (см. историю репозитория при необходимости вернуть).
 # Watchtower: только контейнеры с label com.centurylinklabs.watchtower.enable=true
 
 services:
@@ -33,9 +33,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       BEHAVIOR_METRICS_TRUSTED_HOSTS: ${BEHAVIOR_METRICS_TRUSTED_HOSTS:-}
       NGINX_MAIN_SERVER_NAME: ${NGINX_MAIN_SERVER_NAME:-}
+      # В compose по умолчанию без Swagger/ReDoc (Nginx тоже отдаёт 404 на эти пути).
+      SHOW_API_DOCS: ${SHOW_API_DOCS:-false}
     depends_on:
       postgres:
         condition: service_healthy
+    # Порт 8000 только во внутренней сети compose; на хост не пробрасывается.
     expose:
       - "8000"
     logging:
@@ -62,59 +65,6 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
 
-  pgadmin:
-    image: dpage/pgadmin4:8
-    restart: unless-stopped
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-    networks:
-      - app
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-      # Подпуть задаётся только через Nginx (X-Script-Name / X-Scheme). Не задавайте SCRIPT_NAME:
-      # иначе Gunicorn ждёт путь /pgadmin/... а proxy_pass .../ обрезает префикс → 500.
-      PGADMIN_CONFIG_SERVER_MODE: "True"
-      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
-      PGADMIN_CONFIG_WTF_CSRF_CHECK_ENABLED: "False"
-      PGADMIN_CONFIG_COOKIE_SECURE: "True"
-      # Доверять одному прокси для X-Forwarded-* (TERM SSL на Nginx)
-      PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: "1"
-      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: "1"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    expose:
-      - "80"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
-
-  registry:
-    image: registry:2
-    restart: unless-stopped
-    networks:
-      - edge
-    environment:
-      REGISTRY_AUTH: htpasswd
-      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
-      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
-      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
-      REGISTRY_HTTP_HEADERS_X-Content-Type-Options: "[nosniff]"
-    volumes:
-      - registry_data:/data
-      - ./registry/auth:/auth:ro
-    expose:
-      - "5000"
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -126,18 +76,14 @@ services:
       - "443:443"
     environment:
       NGINX_MAIN_SERVER_NAME: ${NGINX_MAIN_SERVER_NAME}
-      NGINX_REGISTRY_SERVER_NAME: ${NGINX_REGISTRY_SERVER_NAME}
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/templates:/etc/nginx/templates:ro
       - ./certs:/etc/nginx/certs:ro
-      - ./nginx/htpasswd:/etc/nginx/htpasswd:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       - backend
       - frontend
-      - registry
-      - pgadmin
     logging:
       driver: json-file
       options:
@@ -171,6 +117,4 @@ networks:
 
 volumes:
   pgdata:
-  pgadmin_data:
-  registry_data:
   nginx_logs:

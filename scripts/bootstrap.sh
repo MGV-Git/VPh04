@@ -12,16 +12,13 @@ set -a
 source .env
 set +a
 
-: "${REGISTRY_USER:?Задайте REGISTRY_USER в .env}"
-: "${REGISTRY_PASSWORD:?Задайте REGISTRY_PASSWORD в .env}"
-: "${PGADMIN_BASIC_USER:=pgadmin}"
-: "${PGADMIN_BASIC_PASSWORD:?Задайте PGADMIN_BASIC_PASSWORD в .env (Basic Auth для /pgadmin/)}"
+: "${NGINX_MAIN_SERVER_NAME:?Задайте NGINX_MAIN_SERVER_NAME в .env}"
 
 mkdir -p certs nginx/htpasswd registry/auth
 
 if [[ ! -f certs/fullchain.pem || ! -f certs/privkey.pem ]]; then
-  echo "TLS: самоподписанный сертификат (SAN для сайта и registry). В проде замените на Let's Encrypt."
-  SAN="DNS:${NGINX_MAIN_SERVER_NAME},DNS:${NGINX_REGISTRY_SERVER_NAME}"
+  echo "TLS: самоподписанный сертификат (SAN только для основного сайта). В проде замените на Let's Encrypt."
+  SAN="DNS:${NGINX_MAIN_SERVER_NAME}"
   openssl req -x509 -nodes -newkey rsa:4096 \
     -keyout certs/privkey.pem \
     -out certs/fullchain.pem \
@@ -48,12 +45,23 @@ htpasswd_bc() {
   fi
 }
 
-htpasswd_bc registry/auth/htpasswd "${REGISTRY_USER}" "${REGISTRY_PASSWORD}"
-htpasswd_bc nginx/htpasswd/pgadmin.htpasswd "${PGADMIN_BASIC_USER}" "${PGADMIN_BASIC_PASSWORD}"
+# Опционально: htpasswd для приватного Registry (если вернёте сервис registry в compose)
+if [[ -n "${REGISTRY_USER:-}" && -n "${REGISTRY_PASSWORD:-}" ]]; then
+  htpasswd_bc registry/auth/htpasswd "${REGISTRY_USER}" "${REGISTRY_PASSWORD}"
+  chmod 640 registry/auth/htpasswd
+else
+  echo "Пропуск registry/auth/htpasswd (не заданы REGISTRY_USER / REGISTRY_PASSWORD)."
+fi
+
+# Опционально: Basic Auth для pgAdmin (если вернёте pgadmin за Nginx)
+if [[ -n "${PGADMIN_BASIC_PASSWORD:-}" ]]; then
+  PGADMIN_BASIC_USER="${PGADMIN_BASIC_USER:-pgadmin}"
+  htpasswd_bc nginx/htpasswd/pgadmin.htpasswd "${PGADMIN_BASIC_USER}" "${PGADMIN_BASIC_PASSWORD}"
+  chmod 644 nginx/htpasswd/pgadmin.htpasswd
+else
+  echo "Пропуск nginx/htpasswd/pgadmin.htpasswd (не задан PGADMIN_BASIC_PASSWORD)."
+fi
 
 chmod 600 .env
-chmod 640 registry/auth/htpasswd
-# Нужно читаемым для процесса nginx в контейнере (не root): иначе 500 «Permission denied» на auth_basic_user_file
-chmod 644 nginx/htpasswd/pgadmin.htpasswd
 
 echo "Готово. Запуск: docker compose up -d --build"

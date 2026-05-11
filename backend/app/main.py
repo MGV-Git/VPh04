@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -11,6 +12,14 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("app")
 
 
+def _show_openapi_docs() -> bool:
+    """В Docker по умолчанию выключено (SHOW_API_DOCS=false); локально без переменной — включено."""
+    raw = os.getenv("SHOW_API_DOCS")
+    if raw is None:
+        return True
+    return raw.lower() in ("1", "true", "yes", "on")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     pool = await create_pool()
@@ -19,13 +28,14 @@ async def lifespan(app: FastAPI):
     await close_pool(pool)
 
 
+_docs = _show_openapi_docs()
 app = FastAPI(
     title="Leads & config API",
     version="1.0.0",
     lifespan=lifespan,
-    docs_url="/api/v1/docs",
-    redoc_url="/api/v1/redoc",
-    openapi_url="/api/v1/openapi.json",
+    docs_url="/api/v1/docs" if _docs else None,
+    redoc_url="/api/v1/redoc" if _docs else None,
+    openapi_url="/api/v1/openapi.json" if _docs else None,
 )
 
 app.include_router(api_v1_router())
