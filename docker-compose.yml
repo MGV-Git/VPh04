@@ -1,0 +1,174 @@
+# Единый стек: Nginx (ingress) → Frontend / Backend / pgAdmin / Registry (v2)
+# Сеть app — internal (без выхода в интернет). PostgreSQL только в app.
+# Watchtower: только контейнеры с label com.centurylinklabs.watchtower.enable=true
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+    networks:
+      - app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    networks:
+      - app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    networks:
+      - app
+    expose:
+      - "80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "5"
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+    networks:
+      - app
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      # Подпуть задаётся только через Nginx (X-Script-Name / X-Scheme). Не задавайте SCRIPT_NAME:
+      # иначе Gunicorn ждёт путь /pgadmin/... а proxy_pass .../ обрезает префикс → 500.
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+      PGADMIN_CONFIG_WTF_CSRF_CHECK_ENABLED: "False"
+      PGADMIN_CONFIG_COOKIE_SECURE: "True"
+      # Доверять одному прокси для X-Forwarded-* (TERM SSL на Nginx)
+      PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: "1"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    expose:
+      - "80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  registry:
+    image: registry:2
+    restart: unless-stopped
+    networks:
+      - edge
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
+      REGISTRY_HTTP_HEADERS_X-Content-Type-Options: "[nosniff]"
+    volumes:
+      - registry_data:/data
+      - ./registry/auth:/auth:ro
+    expose:
+      - "5000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    networks:
+      - edge
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      NGINX_MAIN_SERVER_NAME: ${NGINX_MAIN_SERVER_NAME}
+      NGINX_REGISTRY_SERVER_NAME: ${NGINX_REGISTRY_SERVER_NAME}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./nginx/htpasswd:/etc/nginx/htpasswd:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+      - registry
+      - pgadmin
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_ROLLING_RESTART: "true"
+      # Современный Docker Engine требует API ≥ 1.40 (часто 1.44+); подставьте `docker version --format '{{.Server.APIVersion}}'`
+      DOCKER_API_VERSION: ${DOCKER_API_VERSION:-1.44}
+      TZ: ${TZ:-UTC}
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+
+networks:
+  edge:
+    name: itvip_edge
+  app:
+    name: itvip_app
+    internal: true
+
+volumes:
+  pgdata:
+  pgadmin_data:
+  registry_data:
+  nginx_logs:

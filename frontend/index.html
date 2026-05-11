@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Заявка</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>Оставить заявку</h1>
+    <p class="muted">Данные обрабатываются только на этом сервере.</p>
+    <form id="lead-form" novalidate>
+      <label>Имя<input name="name" type="text" required maxlength="200" /></label>
+      <label>Email<input name="email" type="email" required maxlength="254" /></label>
+      <label>Телефон<input name="phone" type="tel" maxlength="40" /></label>
+      <label>Сообщение<textarea name="message" rows="4" maxlength="4000"></textarea></label>
+      <button type="submit">Отправить</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

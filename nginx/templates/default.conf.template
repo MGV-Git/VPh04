@@ -1,0 +1,92 @@
+# HTTP → HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${NGINX_MAIN_SERVER_NAME} ${NGINX_REGISTRY_SERVER_NAME};
+    return 301 https://$host$request_uri;
+}
+
+# Основной сайт + API + pgAdmin
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${NGINX_MAIN_SERVER_NAME};
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+
+    if ($block_waf) { return 403; }
+
+    # API backend
+    location /api/ {
+        limit_req zone=api_rl burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://backend:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 30s;
+    }
+
+    # pgAdmin: защищённый путь + Basic Auth (опционально добавьте allow CIDR в override)
+    location /pgadmin/ {
+        auth_basic "pgAdmin";
+        auth_basic_user_file /etc/nginx/htpasswd/pgadmin.htpasswd;
+
+        proxy_pass http://pgadmin/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # pgAdmin ожидает X-Scheme при HTTPS за прокси (см. container_deployment.html)
+        proxy_set_header X-Scheme $scheme;
+        proxy_set_header X-Script-Name /pgadmin;
+        proxy_redirect off;
+        proxy_cookie_path / /pgadmin/;
+    }
+
+    # Статика SPA
+    location / {
+        limit_req zone=api_burst burst=50 nodelay;
+        proxy_pass http://frontend:80;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+
+# Docker Registry v2 (TLS + htpasswd на стороне registry)
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${NGINX_REGISTRY_SERVER_NAME};
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass http://registry:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 900;
+        proxy_connect_timeout 10;
+    }
+}
