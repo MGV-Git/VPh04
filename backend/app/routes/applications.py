@@ -5,6 +5,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from psycopg import AsyncConnection
 
 from app.core.database import get_db_conn
+from app.core.security import get_current_admin
 from app.models.application import LeadApplication, LeadApplicationCRUD
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -171,6 +172,7 @@ async def create_application(
 @router.get("", response_model=list[LeadApplicationOut])
 async def list_applications(
     conn: Annotated[AsyncConnection, Depends(get_db_conn)],
+    _: Annotated[object, Depends(get_current_admin)],
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -182,6 +184,7 @@ async def list_applications(
 async def get_application(
     application_id: int,
     conn: Annotated[AsyncConnection, Depends(get_db_conn)],
+    _: Annotated[object, Depends(get_current_admin)],
 ):
     row = await LeadApplicationCRUD.get_by_id(conn, application_id)
     if row is None:
@@ -194,6 +197,7 @@ async def patch_application(
     application_id: int,
     body: LeadApplicationPatch,
     conn: Annotated[AsyncConnection, Depends(get_db_conn)],
+    _: Annotated[object, Depends(get_current_admin)],
 ):
     data = body.model_dump(exclude_unset=True)
     if "email" in data and data["email"] is not None:
@@ -208,6 +212,7 @@ async def patch_application(
 async def delete_application(
     application_id: int,
     conn: Annotated[AsyncConnection, Depends(get_db_conn)],
+    _: Annotated[object, Depends(get_current_admin)],
 ):
     ok = await LeadApplicationCRUD.delete(conn, application_id)
     if not ok:

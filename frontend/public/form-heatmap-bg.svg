@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1280" width="1080" height="1280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#221c14"/>
+      <stop offset="100%" style="stop-color:#100d08"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8d78f"/>
+      <stop offset="100%" style="stop-color:#c9a24a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1280" fill="url(#bg)"/>
+  <!-- hero -->
+  <text x="540" y="56" fill="#f8cc6f" font-family="Georgia,serif" font-size="22" text-anchor="middle" letter-spacing="0.12em">PRIVATE STRATEGY FORM</text>
+  <text x="540" y="108" fill="#f9df9d" font-family="Georgia,serif" font-size="34" font-weight="700" text-anchor="middle">0O2:0 =0 ?5@A>=0;L=K9 @071>@ 187=5A0</text>
+  <rect x="120" y="130" width="840" height="44" rx="10" fill="none" stroke="rgba(248,215,143,0.35)" stroke-width="1"/>
+  <!-- card -->
+  <rect x="72" y="210" width="936" height="980" rx="18" fill="rgba(20,16,10,0.55)" stroke="rgba(248,215,143,0.22)" stroke-width="1"/>
+  <!-- two-column fields (approximate layout) -->
+  <g fill="none" stroke="rgba(248,215,143,0.28)" stroke-width="1.2">
+    <rect x="120" y="250" width="400" height="38" rx="8"/>
+    <rect x="560" y="250" width="400" height="38" rx="8"/>
+    <rect x="120" y="308" width="400" height="38" rx="8"/>
+    <rect x="560" y="308" width="400" height="38" rx="8"/>
+    <rect x="120" y="366" width="400" height="38" rx="8"/>
+    <rect x="560" y="366" width="400" height="38" rx="8"/>
+    <rect x="120" y="424" width="840" height="88" rx="8"/>
+    <rect x="120" y="528" width="400" height="38" rx="8"/>
+    <rect x="560" y="528" width="400" height="38" rx="8"/>
+    <rect x="120" y="586" width="400" height="38" rx="8"/>
+    <rect x="560" y="586" width="400" height="38" rx="8"/>
+    <rect x="120" y="644" width="400" height="38" rx="8"/>
+    <rect x="560" y="644" width="400" height="38" rx="8"/>
+    <rect x="120" y="702" width="400" height="38" rx="8"/>
+    <rect x="560" y="702" width="400" height="38" rx="8"/>
+    <rect x="120" y="760" width="400" height="38" rx="8"/>
+    <rect x="560" y="760" width="400" height="38" rx="8"/>
+    <rect x="120" y="818" width="400" height="38" rx="8"/>
+    <rect x="560" y="818" width="400" height="38" rx="8"/>
+    <rect x="120" y="876" width="840" height="88" rx="8"/>
+  </g>
+  <rect x="120" y="1000" width="320" height="48" rx="14" fill="url(#gold)" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>
+  <text x="280" y="1032" fill="#1f1508" font-family="Inter,sans-serif" font-size="15" font-weight="600" text-anchor="middle">B?@028BL 70O2:C</text>
+</svg>

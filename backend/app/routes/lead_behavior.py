@@ -6,9 +6,14 @@ from psycopg import AsyncConnection
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
 
 from app.core.database import get_db_conn
+from app.core.security import get_current_admin
 from app.models.lead_behavior import LeadBehaviorMetrics, LeadBehaviorMetricsCRUD
 
-router = APIRouter(prefix="/behavior-metrics", tags=["behavior-metrics"])
+router = APIRouter(
+    prefix="/behavior-metrics",
+    tags=["behavior-metrics"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 class LeadBehaviorCreate(BaseModel):

@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.database import close_pool, create_pool
-from app.routes import api_v1_router
+from app.routes import api_v1_router, public_behavior_metrics
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("app")
@@ -29,6 +29,7 @@ app = FastAPI(
 )
 
 app.include_router(api_v1_router())
+app.include_router(public_behavior_metrics.router)
 
 
 @app.get("/api/v1/health")

@@ -122,12 +122,14 @@ class AdminSiteConfigCRUD:
         *,
         limit: int = 50,
         offset: int = 0,
+        order_desc: bool = False,
     ) -> list[AdminSiteConfig]:
         lim = max(1, min(limit, 200))
         off = max(0, offset)
+        direction = "DESC" if order_desc else "ASC"
         async with conn.cursor() as cur:
             await cur.execute(
-                cls._select_base + " ORDER BY id ASC LIMIT %s OFFSET %s",
+                cls._select_base + f" ORDER BY id {direction} LIMIT %s OFFSET %s",
                 (lim, off),
             )
             rows = await cur.fetchall()

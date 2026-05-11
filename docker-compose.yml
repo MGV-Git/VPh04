@@ -31,6 +31,8 @@ services:
       - app
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      BEHAVIOR_METRICS_TRUSTED_HOSTS: ${BEHAVIOR_METRICS_TRUSTED_HOSTS:-}
+      NGINX_MAIN_SERVER_NAME: ${NGINX_MAIN_SERVER_NAME:-}
     depends_on:
       postgres:
         condition: service_healthy

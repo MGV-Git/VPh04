@@ -1,13 +1,18 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from psycopg import AsyncConnection
 
 from app.core.database import get_db_conn
+from app.core.security import get_current_admin
 from app.models.admin_config import AdminSiteConfig, AdminSiteConfigCRUD
 
-router = APIRouter(prefix="/admin-config", tags=["admin-config"])
+router = APIRouter(
+    prefix="/admin-config",
+    tags=["admin-config"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 class AdminConfigCreate(BaseModel):
@@ -71,8 +76,14 @@ async def list_admin_config(
     conn: Annotated[AsyncConnection, Depends(get_db_conn)],
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    sort: Literal["asc", "desc"] = Query(
+        "asc",
+        description="Порядок по id: desc — сначала последняя конфигурация (для админки).",
+    ),
 ):
-    rows = await AdminSiteConfigCRUD.list_page(conn, limit=limit, offset=offset)
+    rows = await AdminSiteConfigCRUD.list_page(
+        conn, limit=limit, offset=offset, order_desc=(sort == "desc")
+    )
     return [AdminConfigOut.from_row(r) for r in rows]
 
 
